@@ -17,13 +17,48 @@ newoption {
 
 local projectlocation = os.getcwd()
 local gl3wlocation = path.join(os.getcwd(), "dependencies/gl3w")
-local imguilocation = path.join(os.getcwd(), "dependencies/imgui-1.76")
+
+local imguiminimumlocation = path.join(projectlocation, "dependencies/imgui-1.64")
+local imguilatestlocation = path.join(projectlocation, "dependencies/imgui-1.76")
 
 if _ACTION then
     projectlocation = path.join(projectlocation, "build", _ACTION)
 end
 
-function imnodes_example_project(name, example_file)
+function imguiproject(projectname, imguilocation)
+    project(projectname)
+    location(projectlocation)
+    kind "StaticLib"
+    language "C++"
+    cppdialect "C++98"
+    targetdir "lib/%{cfg.buildcfg}"
+    files { path.join(imguilocation, "**.cpp") }
+    includedirs {
+        imguilocation,
+        path.join(gl3wlocation, "include") }
+
+    if _OPTIONS["sdl-include-path"] then
+        includedirs { _OPTIONS["sdl-include-path"] }
+    end
+
+    if _OPTIONS["use-sdl-framework"] then
+        includedirs { "/Library/Frameworks/SDL2.framework/Headers" }
+    end
+end
+
+function imnodesproject(name, imguilocation)
+    project(name)
+    location(projectlocation)
+    kind "StaticLib"
+    language "C++"
+    cppdialect "C++98"
+    enablewarnings { "all" }
+    targetdir "lib/%{cfg.buildcfg}"
+    files { "imnodes.h", "imnodes.cpp" }
+    includedirs { imguilocation }
+end
+
+function exampleproject(name, example_file, imnodesproject, imguiproject, imguilocation)
     project(name)
     location(projectlocation)
     kind "ConsoleApp"
@@ -35,9 +70,9 @@ function imnodes_example_project(name, example_file)
     includedirs {
         os.getcwd(),
         imguilocation,
-        path.join(gl3wlocation, "include"),_OPTIONS["sdl-include-path"]
+        path.join(gl3wlocation, "include")
     }
-    links { "gl3w", "imgui", "imnodes" }
+    links { "gl3w", imguiproject, imnodesproject }
 
     if _OPTIONS["sdl-include-path"] then
         includedirs { _OPTIONS["sdl-include-path"] }
@@ -110,43 +145,30 @@ workspace "imnodes"
         files { path.join(gl3wlocation, "src/gl3w.c") }
         includedirs { path.join(gl3wlocation, "include") }
 
-    project "imgui"
-        location(projectlocation)
-        kind "StaticLib"
-        language "C++"
-        cppdialect "C++98"
-        targetdir "lib/%{cfg.buildcfg}"
-        files { path.join(imguilocation, "**.cpp") }
-        includedirs {
-            imguilocation,
-            path.join(gl3wlocation, "include") }
+    imguiproject("imgui-minimum", imguiminimumlocation)
 
-        if _OPTIONS["sdl-include-path"] then
-            includedirs { _OPTIONS["sdl-include-path"] }
-        end
-
-        if _OPTIONS["use-sdl-framework"] then
-            includedirs { "/Library/Frameworks/SDL2.framework/Headers" }
-        end
+    imguiproject("imgui-latest", imguilatestlocation)
 
     group "imnodes"
 
-    project "imnodes"
-        location(projectlocation)
-        kind "StaticLib"
-        language "C++"
-        cppdialect "C++98"
-        enablewarnings { "all" }
-        targetdir "lib/%{cfg.buildcfg}"
-        files { "imnodes.h", "imnodes.cpp" }
-        includedirs { path.join(imguilocation) }
+    imnodesproject("imnodes-minimum", imguiminimumlocation)
+
+    imnodesproject("imnodes", imguilatestlocation)
 
     group "examples"
 
-    imnodes_example_project("simple", "simple.cpp")
+    exampleproject("simple", "simple.cpp", "imnodes", "imgui-latest", imguilatestlocation)
 
-    imnodes_example_project("saveload", "save_load.cpp")
+    exampleproject("saveload", "save_load.cpp", "imnodes", "imgui-latest", imguilatestlocation)
 
-    imnodes_example_project("colornode", "color_node_editor.cpp")
+    exampleproject("colornode", "color_node_editor.cpp", "imnodes", "imgui-latest", imguilatestlocation)
 
-    imnodes_example_project("multieditor", "multi_editor.cpp")
+    exampleproject("multieditor", "multi_editor.cpp", "imnodes", "imgui-latest", imguilatestlocation)
+
+    exampleproject("simple-minimum", "simple.cpp", "imnodes-minimum", "imgui-minimum", imguiminimumlocation)
+
+    exampleproject("saveload-minimum", "save_load.cpp", "imnodes-minimum", "imgui-minimum", imguiminimumlocation)
+
+    exampleproject("colornode-minimum", "color_node_editor.cpp", "imnodes-minimum", "imgui-minimum", imguiminimumlocation)
+
+    exampleproject("multieditor-minimum", "multi_editor.cpp", "imnodes-minimum", "imgui-minimum", imguiminimumlocation)
